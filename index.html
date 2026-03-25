@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Courier New', monospace;
+    }
+
+    .phone {
+      background: #2a2a3e;
+      border-radius: 30px;
+      padding: 20px 16px 30px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      border: 2px solid #3a3a5e;
+    }
+
+    .screen-bezel {
+      background: #111;
+      border-radius: 8px;
+      padding: 10px;
+      border: 3px solid #444;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
+    }
+
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      color: #4cff4c;
+      font-size: 13px;
+      margin-bottom: 6px;
+      width: 240px;
+      letter-spacing: 1px;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    .message {
+      color: #4cff4c;
+      font-size: 12px;
+      text-align: center;
+      margin-top: 6px;
+      height: 16px;
+      letter-spacing: 1px;
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: 40px 40px 40px;
+      grid-template-rows: 40px 40px 40px;
+      gap: 4px;
+    }
+
+    .dpad button {
+      background: #3a3a5e;
+      border: 1px solid #555;
+      border-radius: 6px;
+      color: #aaa;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .dpad button:active { background: #5a5a8e; }
+    .dpad .empty { background: transparent; border: none; }
+
+    .btn-start {
+      background: #3a3a5e;
+      border: 1px solid #555;
+      border-radius: 12px;
+      color: #aaa;
+      font-size: 11px;
+      padding: 6px 18px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      font-family: 'Courier New', monospace;
+    }
+    .btn-start:active { background: #5a5a8e; }
+  </style>
+</head>
+<body>
+<div class="phone">
+  <div class="screen-bezel">
+    <div class="hud">
+      <span>SCORE: <span id="score">0</span></span>
+      <span>HI: <span id="hi">0</span></span>
+    </div>
+    <canvas id="canvas" width="240" height="240"></canvas>
+    <div class="message" id="msg">PRESS START</div>
+  </div>
+
+  <button class="btn-start" id="startBtn">START</button>
+
+  <div class="dpad">
+    <div class="empty"></div>
+    <button id="up">▲</button>
+    <div class="empty"></div>
+    <button id="left">◀</button>
+    <div class="empty"></div>
+    <button id="right">▶</button>
+    <div class="empty"></div>
+    <button id="down">▼</button>
+    <div class="empty"></div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const hiEl = document.getElementById('hi');
+  const msgEl = document.getElementById('msg');
+
+  const COLS = 20, ROWS = 20;
+  const CELL = canvas.width / COLS;
+
+  const BG   = '#0a1a0a';
+  const GRID = '#0e200e';
+  const HEAD = '#7fff7f';
+  const BODY = '#4cff4c';
+  const FOOD = '#ff4c4c';
+  const DEAD = '#333';
+
+  let snake, dir, nextDir, food, score, hiScore = 0, loop, alive, started;
+
+  function init() {
+    snake = [
+      {x: 10, y: 10},
+      {x:  9, y: 10},
+      {x:  8, y: 10},
+    ];
+    dir = {x: 1, y: 0};
+    nextDir = {x: 1, y: 0};
+    score = 0;
+    alive = true;
+    started = false;
+    scoreEl.textContent = 0;
+    spawnFood();
+    draw();
+    msgEl.textContent = 'PRESS START';
+  }
+
+  const MARGIN = 2;
+  function spawnFood() {
+    let pos;
+    do {
+      pos = {
+        x: MARGIN + Math.floor(Math.random() * (COLS - MARGIN * 2)),
+        y: MARGIN + Math.floor(Math.random() * (ROWS - MARGIN * 2)),
+      };
+    } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+    food = pos;
+  }
+
+  function step() {
+    dir = nextDir;
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+    // Wall collision
+    if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+      return gameOver();
+    }
+    // Self collision
+    if (snake.some(s => s.x === head.x && s.y === head.y)) {
+      return gameOver();
+    }
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+      score++;
+      scoreEl.textContent = score;
+      if (score > hiScore) { hiScore = score; hiEl.textContent = hiScore; }
+      spawnFood();
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function gameOver() {
+    alive = false;
+    clearInterval(loop);
+    drawDead();
+    msgEl.textContent = 'GAME OVER!';
+  }
+
+  function draw() {
+    // Background
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Grid dots
+    ctx.fillStyle = GRID;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        ctx.fillRect(c * CELL + CELL/2 - 0.5, r * CELL + CELL/2 - 0.5, 1, 1);
+      }
+    }
+
+    // Food (blinking handled by draw call rhythm — always visible here)
+    const fx = food.x * CELL, fy = food.y * CELL;
+    ctx.fillStyle = FOOD;
+    ctx.fillRect(fx + 2, fy + 2, CELL - 4, CELL - 4);
+
+    // Snake body
+    for (let i = snake.length - 1; i >= 0; i--) {
+      const s = snake[i];
+      ctx.fillStyle = i === 0 ? HEAD : BODY;
+      const inset = i === 0 ? 1 : 2;
+      ctx.fillRect(s.x * CELL + inset, s.y * CELL + inset, CELL - inset*2, CELL - inset*2);
+    }
+  }
+
+  function drawDead() {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (const s of snake) {
+      ctx.fillStyle = DEAD;
+      ctx.fillRect(s.x * CELL + 2, s.y * CELL + 2, CELL - 4, CELL - 4);
+    }
+  }
+
+  function startGame() {
+    clearInterval(loop);
+    init();
+    started = true;
+    msgEl.textContent = '';
+    const speed = 150;
+    loop = setInterval(step, speed);
+  }
+
+  // Keyboard controls
+  document.addEventListener('keydown', e => {
+    switch (e.key) {
+      case 'ArrowUp':    case 'w': case 'W': if (dir.y !== 1)  nextDir = {x:0, y:-1}; e.preventDefault(); break;
+      case 'ArrowDown':  case 's': case 'S': if (dir.y !== -1) nextDir = {x:0, y: 1}; e.preventDefault(); break;
+      case 'ArrowLeft':  case 'a': case 'A': if (dir.x !== 1)  nextDir = {x:-1, y:0}; e.preventDefault(); break;
+      case 'ArrowRight': case 'd': case 'D': if (dir.x !== -1) nextDir = {x: 1, y:0}; e.preventDefault(); break;
+      case 'Enter': case ' ': startGame(); break;
+    }
+  });
+
+  // Ensure the page captures keyboard focus immediately
+  document.body.setAttribute('tabindex', '0');
+  document.body.focus();
+  canvas.addEventListener('click', () => document.body.focus());
+
+  // D-pad buttons
+  document.getElementById('up').addEventListener('click',    () => { if (dir.y !== 1)  nextDir = {x:0, y:-1}; });
+  document.getElementById('down').addEventListener('click',  () => { if (dir.y !== -1) nextDir = {x:0, y: 1}; });
+  document.getElementById('left').addEventListener('click',  () => { if (dir.x !== 1)  nextDir = {x:-1, y:0}; });
+  document.getElementById('right').addEventListener('click', () => { if (dir.x !== -1) nextDir = {x: 1, y:0}; });
+  document.getElementById('startBtn').addEventListener('click', startGame);
+
+  init();
+</script>
+</body>
+</html>
