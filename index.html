@@ -78,6 +78,8 @@
       align-items: center;
       justify-content: center;
       user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .dpad button:active { background: #5a5a8e; }
@@ -470,11 +472,19 @@
   document.body.focus();
   canvas.addEventListener('click', () => document.body.focus());
 
-  // D-pad buttons
-  document.getElementById('up').addEventListener('click',    () => { if (dir.y !== 1)  nextDir = {x:0, y:-1}; });
-  document.getElementById('down').addEventListener('click',  () => { if (dir.y !== -1) nextDir = {x:0, y: 1}; });
-  document.getElementById('left').addEventListener('click',  () => { if (dir.x !== 1)  nextDir = {x:-1, y:0}; });
-  document.getElementById('right').addEventListener('click', () => { if (dir.x !== -1) nextDir = {x: 1, y:0}; });
+  // D-pad buttons — use touchstart for immediate response on iOS (preventDefault stops
+  // the subsequent click from firing twice on desktop-like touch environments)
+  function addDpadListener(id, handler) {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', e => { e.preventDefault(); handler(); }, { passive: false });
+    el.addEventListener('click', handler);
+  }
+
+  addDpadListener('up',    () => { if (dir.y !== 1)  nextDir = {x:0, y:-1}; });
+  addDpadListener('down',  () => { if (dir.y !== -1) nextDir = {x:0, y: 1}; });
+  addDpadListener('left',  () => { if (dir.x !== 1)  nextDir = {x:-1, y:0}; });
+  addDpadListener('right', () => { if (dir.x !== -1) nextDir = {x: 1, y:0}; });
+  document.getElementById('startBtn').addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, { passive: false });
   document.getElementById('startBtn').addEventListener('click', startGame);
 
   init();
