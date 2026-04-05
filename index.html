@@ -59,10 +59,36 @@
       letter-spacing: 1px;
     }
 
+    #dpadContainer {
+      position: fixed;
+      bottom: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      z-index: 200;
+      user-select: none;
+    }
+
+    #dpadHandle {
+      color: #444;
+      font-size: 13px;
+      cursor: grab;
+      padding: 0 10px 2px;
+      touch-action: none;
+      letter-spacing: 3px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    #dpadHandle:hover { color: #888; }
+    #dpadHandle.dragging { cursor: grabbing; color: #4cff4c; }
+
     .dpad {
       display: grid;
-      grid-template-columns: 40px 40px 40px;
-      grid-template-rows: 40px 40px 40px;
+      grid-template-columns: 44px 44px 44px;
+      grid-template-rows: 44px 44px 44px;
       gap: 4px;
     }
 
@@ -71,7 +97,7 @@
       border: 1px solid #555;
       border-radius: 6px;
       color: #aaa;
-      font-size: 18px;
+      font-size: 20px;
       cursor: pointer;
       transition: background 0.1s;
       display: flex;
@@ -206,18 +232,6 @@
     <button class="btn-keys" id="keysBtn">KEYS</button>
   </div>
 
-  <div class="dpad">
-    <div class="empty"></div>
-    <button id="up">▲</button>
-    <div class="empty"></div>
-    <button id="left">◀</button>
-    <div class="empty"></div>
-    <button id="right">▶</button>
-    <div class="empty"></div>
-    <button id="down">▼</button>
-    <div class="empty"></div>
-  </div>
-
   <div class="key-panel" id="keyPanel">
     <div class="key-panel-title">KEY BINDINGS</div>
     <div class="key-row">
@@ -237,6 +251,21 @@
       <button class="key-btn" id="kbtn-right"></button>
     </div>
     <button class="key-reset" id="keyReset">RESET DEFAULTS</button>
+  </div>
+</div>
+
+<div id="dpadContainer">
+  <div id="dpadHandle" title="Drag to reposition">⠿ ⠿ ⠿</div>
+  <div class="dpad">
+    <div class="empty"></div>
+    <button id="up">▲</button>
+    <div class="empty"></div>
+    <button id="left">◀</button>
+    <div class="empty"></div>
+    <button id="right">▶</button>
+    <div class="empty"></div>
+    <button id="down">▼</button>
+    <div class="empty"></div>
   </div>
 </div>
 
@@ -486,6 +515,54 @@
   addDpadListener('right', () => { if (dir.x !== -1) nextDir = {x: 1, y:0}; });
   document.getElementById('startBtn').addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, { passive: false });
   document.getElementById('startBtn').addEventListener('click', startGame);
+
+  // Draggable D-pad
+  (function () {
+    const container = document.getElementById('dpadContainer');
+    const handle    = document.getElementById('dpadHandle');
+
+    function applyPos(x, y) {
+      container.style.left      = x + 'px';
+      container.style.top       = y + 'px';
+      container.style.bottom    = 'auto';
+      container.style.transform = 'none';
+    }
+
+    // Restore saved position
+    try {
+      const p = JSON.parse(localStorage.getItem('dpadPos'));
+      if (p) applyPos(p.x, p.y);
+    } catch(e) {}
+
+    let active = false, ox, oy;
+
+    function onStart(cx, cy) {
+      active = true;
+      const r = container.getBoundingClientRect();
+      ox = cx - r.left;
+      oy = cy - r.top;
+      handle.classList.add('dragging');
+    }
+    function onMove(cx, cy) {
+      if (!active) return;
+      applyPos(cx - ox, cy - oy);
+    }
+    function onEnd() {
+      if (!active) return;
+      active = false;
+      handle.classList.remove('dragging');
+      const r = container.getBoundingClientRect();
+      try { localStorage.setItem('dpadPos', JSON.stringify({ x: r.left, y: r.top })); } catch(e) {}
+    }
+
+    handle.addEventListener('mousedown',  e => { onStart(e.clientX, e.clientY); e.preventDefault(); });
+    document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+    document.addEventListener('mouseup',   onEnd);
+
+    handle.addEventListener('touchstart',  e => { onStart(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', e => { if (active) { onMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); } }, { passive: false });
+    document.addEventListener('touchend',  onEnd);
+  })();
 
   init();
 </script>
