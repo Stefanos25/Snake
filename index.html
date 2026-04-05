@@ -59,10 +59,36 @@
       letter-spacing: 1px;
     }
 
+    #dpadContainer {
+      position: fixed;
+      bottom: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      z-index: 200;
+      user-select: none;
+    }
+
+    #dpadHandle {
+      color: #444;
+      font-size: 13px;
+      cursor: grab;
+      padding: 0 10px 2px;
+      touch-action: none;
+      letter-spacing: 3px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    #dpadHandle:hover { color: #888; }
+    #dpadHandle.dragging { cursor: grabbing; color: #4cff4c; }
+
     .dpad {
       display: grid;
-      grid-template-columns: 40px 40px 40px;
-      grid-template-rows: 40px 40px 40px;
+      grid-template-columns: 44px 44px 44px;
+      grid-template-rows: 44px 44px 44px;
       gap: 4px;
     }
 
@@ -71,13 +97,15 @@
       border: 1px solid #555;
       border-radius: 6px;
       color: #aaa;
-      font-size: 18px;
+      font-size: 20px;
       cursor: pointer;
       transition: background 0.1s;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .dpad button:active { background: #5a5a8e; }
@@ -95,6 +123,97 @@
       font-family: 'Courier New', monospace;
     }
     .btn-start:active { background: #5a5a8e; }
+
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-keys {
+      background: #3a3a5e;
+      border: 1px solid #555;
+      border-radius: 12px;
+      color: #aaa;
+      font-size: 11px;
+      padding: 6px 14px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      font-family: 'Courier New', monospace;
+    }
+    .btn-keys:active { background: #5a5a8e; }
+    .btn-keys.active { color: #4cff4c; border-color: #4cff4c; }
+
+    .key-panel {
+      display: none;
+      background: #1a1a2e;
+      border: 1px solid #3a3a5e;
+      border-radius: 8px;
+      padding: 10px 14px;
+      width: 188px;
+    }
+    .key-panel.visible { display: block; }
+
+    .key-panel-title {
+      color: #4cff4c;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-align: center;
+      margin-bottom: 8px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .key-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .key-label {
+      color: #888;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+    }
+
+    .key-btn {
+      background: #3a3a5e;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #ccc;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      padding: 3px 0;
+      cursor: pointer;
+      width: 52px;
+      text-align: center;
+      letter-spacing: 1px;
+      transition: all 0.1s;
+    }
+    .key-btn:hover { border-color: #888; color: #fff; }
+    .key-btn.listening { border-color: #4cff4c; color: #4cff4c; animation: blink 0.7s step-end infinite; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
+    .key-reset {
+      background: none;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #555;
+      font-size: 10px;
+      font-family: 'Courier New', monospace;
+      padding: 3px 0;
+      cursor: pointer;
+      letter-spacing: 1px;
+      width: 100%;
+      margin-top: 6px;
+      transition: all 0.1s;
+    }
+    .key-reset:hover { border-color: #666; color: #999; }
   </style>
 </head>
 <body>
@@ -108,8 +227,35 @@
     <div class="message" id="msg">PRESS START</div>
   </div>
 
-  <button class="btn-start" id="startBtn">START</button>
+  <div class="controls-row">
+    <button class="btn-start" id="startBtn">START</button>
+    <button class="btn-keys" id="keysBtn">KEYS</button>
+  </div>
 
+  <div class="key-panel" id="keyPanel">
+    <div class="key-panel-title">KEY BINDINGS</div>
+    <div class="key-row">
+      <span class="key-label">▲ UP</span>
+      <button class="key-btn" id="kbtn-up"></button>
+    </div>
+    <div class="key-row">
+      <span class="key-label">▼ DOWN</span>
+      <button class="key-btn" id="kbtn-down"></button>
+    </div>
+    <div class="key-row">
+      <span class="key-label">◀ LEFT</span>
+      <button class="key-btn" id="kbtn-left"></button>
+    </div>
+    <div class="key-row">
+      <span class="key-label">▶ RIGHT</span>
+      <button class="key-btn" id="kbtn-right"></button>
+    </div>
+    <button class="key-reset" id="keyReset">RESET DEFAULTS</button>
+  </div>
+</div>
+
+<div id="dpadContainer">
+  <div id="dpadHandle" title="Drag to reposition">⠿ ⠿ ⠿</div>
   <div class="dpad">
     <div class="empty"></div>
     <button id="up">▲</button>
@@ -250,15 +396,104 @@
     loop = setInterval(step, speed);
   }
 
+  // Key bindings — arrow keys are always active; one customisable secondary key per direction
+  const ARROW_KEYS = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+  const DEFAULT_CUSTOM_KEYS = { up: 'w', down: 's', left: 'a', right: 'd' };
+  const DIRS = ['up', 'down', 'left', 'right'];
+  const DIR_VECS = { up: {x:0,y:-1}, down: {x:0,y:1}, left: {x:-1,y:0}, right: {x:1,y:0} };
+  const ANTI_CHECK = { up: () => dir.y !== 1, down: () => dir.y !== -1, left: () => dir.x !== 1, right: () => dir.x !== -1 };
+
+  let customKeys = loadCustomKeys();
+  let rebindingDir = null;
+
+  function loadCustomKeys() {
+    try {
+      const saved = localStorage.getItem('snakeCustomKeys');
+      if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    return Object.assign({}, DEFAULT_CUSTOM_KEYS);
+  }
+
+  function saveCustomKeys() {
+    try { localStorage.setItem('snakeCustomKeys', JSON.stringify(customKeys)); } catch(e) {}
+  }
+
+  function formatKey(key) {
+    if (!key) return '—';
+    const map = { ArrowUp:'↑', ArrowDown:'↓', ArrowLeft:'←', ArrowRight:'→', ' ':'SPC', Escape:'ESC', Enter:'ENT', Backspace:'BSP', Tab:'TAB' };
+    return map[key] || (key.length === 1 ? key.toUpperCase() : key);
+  }
+
+  function updateBindingDisplay() {
+    DIRS.forEach(d => {
+      const btn = document.getElementById('kbtn-' + d);
+      btn.textContent = formatKey(customKeys[d]);
+    });
+  }
+
+  function startRebind(dir) {
+    rebindingDir = dir;
+    DIRS.forEach(d => {
+      const btn = document.getElementById('kbtn-' + d);
+      btn.classList.toggle('listening', d === dir);
+      btn.textContent = d === dir ? '...' : formatKey(customKeys[d]);
+    });
+    document.body.focus();
+  }
+
+  function cancelRebind() {
+    rebindingDir = null;
+    DIRS.forEach(d => document.getElementById('kbtn-' + d).classList.remove('listening'));
+    updateBindingDisplay();
+  }
+
+  DIRS.forEach(d => {
+    document.getElementById('kbtn-' + d).addEventListener('click', () => {
+      if (rebindingDir === d) { cancelRebind(); return; }
+      startRebind(d);
+    });
+  });
+
+  document.getElementById('keyReset').addEventListener('click', () => {
+    customKeys = Object.assign({}, DEFAULT_CUSTOM_KEYS);
+    saveCustomKeys();
+    cancelRebind();
+  });
+
+  document.getElementById('keysBtn').addEventListener('click', () => {
+    const panel = document.getElementById('keyPanel');
+    const btn = document.getElementById('keysBtn');
+    const visible = panel.classList.toggle('visible');
+    btn.classList.toggle('active', visible);
+    if (!visible) cancelRebind();
+  });
+
+  updateBindingDisplay();
+
   // Keyboard controls
   document.addEventListener('keydown', e => {
-    switch (e.key) {
-      case 'ArrowUp':    case 'w': case 'W': if (dir.y !== 1)  nextDir = {x:0, y:-1}; e.preventDefault(); break;
-      case 'ArrowDown':  case 's': case 'S': if (dir.y !== -1) nextDir = {x:0, y: 1}; e.preventDefault(); break;
-      case 'ArrowLeft':  case 'a': case 'A': if (dir.x !== 1)  nextDir = {x:-1, y:0}; e.preventDefault(); break;
-      case 'ArrowRight': case 'd': case 'D': if (dir.x !== -1) nextDir = {x: 1, y:0}; e.preventDefault(); break;
-      case 'Enter': case ' ': startGame(); break;
+    if (rebindingDir) {
+      if (e.key === 'Escape') { cancelRebind(); e.preventDefault(); return; }
+      // Arrow keys are always reserved as fallback — don't allow them in custom slot
+      if (Object.values(ARROW_KEYS).includes(e.key)) return;
+      // Remove this key from any other direction to avoid conflicts
+      DIRS.forEach(d => { if (d !== rebindingDir && customKeys[d] && customKeys[d].toLowerCase() === e.key.toLowerCase()) customKeys[d] = null; });
+      customKeys[rebindingDir] = e.key;
+      saveCustomKeys();
+      cancelRebind();
+      e.preventDefault();
+      return;
     }
+
+    const k = e.key;
+    for (const d of DIRS) {
+      if (k === ARROW_KEYS[d] || (customKeys[d] && k.toLowerCase() === customKeys[d].toLowerCase())) {
+        if (ANTI_CHECK[d]()) nextDir = DIR_VECS[d];
+        e.preventDefault();
+        return;
+      }
+    }
+    if (k === 'Enter' || k === ' ') startGame();
   });
 
   // Ensure the page captures keyboard focus immediately
@@ -266,12 +501,68 @@
   document.body.focus();
   canvas.addEventListener('click', () => document.body.focus());
 
-  // D-pad buttons
-  document.getElementById('up').addEventListener('click',    () => { if (dir.y !== 1)  nextDir = {x:0, y:-1}; });
-  document.getElementById('down').addEventListener('click',  () => { if (dir.y !== -1) nextDir = {x:0, y: 1}; });
-  document.getElementById('left').addEventListener('click',  () => { if (dir.x !== 1)  nextDir = {x:-1, y:0}; });
-  document.getElementById('right').addEventListener('click', () => { if (dir.x !== -1) nextDir = {x: 1, y:0}; });
+  // D-pad buttons — use touchstart for immediate response on iOS (preventDefault stops
+  // the subsequent click from firing twice on desktop-like touch environments)
+  function addDpadListener(id, handler) {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', e => { e.preventDefault(); handler(); }, { passive: false });
+    el.addEventListener('click', handler);
+  }
+
+  addDpadListener('up',    () => { if (dir.y !== 1)  nextDir = {x:0, y:-1}; });
+  addDpadListener('down',  () => { if (dir.y !== -1) nextDir = {x:0, y: 1}; });
+  addDpadListener('left',  () => { if (dir.x !== 1)  nextDir = {x:-1, y:0}; });
+  addDpadListener('right', () => { if (dir.x !== -1) nextDir = {x: 1, y:0}; });
+  document.getElementById('startBtn').addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, { passive: false });
   document.getElementById('startBtn').addEventListener('click', startGame);
+
+  // Draggable D-pad
+  (function () {
+    const container = document.getElementById('dpadContainer');
+    const handle    = document.getElementById('dpadHandle');
+
+    function applyPos(x, y) {
+      container.style.left      = x + 'px';
+      container.style.top       = y + 'px';
+      container.style.bottom    = 'auto';
+      container.style.transform = 'none';
+    }
+
+    // Restore saved position
+    try {
+      const p = JSON.parse(localStorage.getItem('dpadPos'));
+      if (p) applyPos(p.x, p.y);
+    } catch(e) {}
+
+    let active = false, ox, oy;
+
+    function onStart(cx, cy) {
+      active = true;
+      const r = container.getBoundingClientRect();
+      ox = cx - r.left;
+      oy = cy - r.top;
+      handle.classList.add('dragging');
+    }
+    function onMove(cx, cy) {
+      if (!active) return;
+      applyPos(cx - ox, cy - oy);
+    }
+    function onEnd() {
+      if (!active) return;
+      active = false;
+      handle.classList.remove('dragging');
+      const r = container.getBoundingClientRect();
+      try { localStorage.setItem('dpadPos', JSON.stringify({ x: r.left, y: r.top })); } catch(e) {}
+    }
+
+    handle.addEventListener('mousedown',  e => { onStart(e.clientX, e.clientY); e.preventDefault(); });
+    document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+    document.addEventListener('mouseup',   onEnd);
+
+    handle.addEventListener('touchstart',  e => { onStart(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', e => { if (active) { onMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); } }, { passive: false });
+    document.addEventListener('touchend',  onEnd);
+  })();
 
   init();
 </script>
